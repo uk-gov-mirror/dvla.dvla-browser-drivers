@@ -48,6 +48,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'apparition', '>= 0.6'
   spec.add_dependency 'capybara', '>= 3.37'
   spec.add_dependency 'cuprite', '>= 0.14'
-  spec.add_dependency 'dvla-herodotus', '>= 2.0'
   spec.add_dependency 'selenium-webdriver', '>= 4.0'
 end
