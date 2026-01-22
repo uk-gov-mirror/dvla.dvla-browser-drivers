@@ -27,7 +27,7 @@ module DVLA
             browser = browser_match.to_sym
 
             kwargs.each do |key, _value|
-              LOG.warn { "Key: '#{key}' will be ignored | Use one from: '#{SELENIUM_ACCEPTED_PARAMS}'" } unless SELENIUM_ACCEPTED_PARAMS.include?(key)
+              puts "Key: '#{key}' will be ignored | Use one from: '#{SELENIUM_ACCEPTED_PARAMS}'" unless SELENIUM_ACCEPTED_PARAMS.include?(key)
             end
 
             ::Capybara.register_driver method do |app|
@@ -62,7 +62,7 @@ module DVLA
             end
           else
             kwargs.each do |key, _value|
-              LOG.warn { "Key: '#{key}' will be ignored | Use one from: '#{OTHER_ACCEPTED_PARAMS}'" } unless OTHER_ACCEPTED_PARAMS.include?(key)
+              puts "Key: '#{key}' will be ignored | Use one from: '#{OTHER_ACCEPTED_PARAMS}'" unless OTHER_ACCEPTED_PARAMS.include?(key)
             end
 
             browser_options = { 'no-sandbox': nil, 'disable-smooth-scrolling': true }
@@ -82,7 +82,7 @@ module DVLA
             end
           end
 
-          LOG.info { "Driver set to: '#{method}'" }
+          puts  "Driver set to: '#{method}'"
 
           ::Capybara.javascript_driver = method
           ::Capybara.default_driver = method
