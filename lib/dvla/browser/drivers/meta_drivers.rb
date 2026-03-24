@@ -1,12 +1,15 @@
 module DVLA
   module Browser
     module Drivers
-      DRIVER_REGEX = /^(?:(?<headless>headless_)(?<driver>selenium_(?<browser>chrome|firefox)|cuprite|apparition)|(?<driver_no_headless>selenium_(?<browser_no_headless>chrome|firefox|edge|safari)|cuprite|apparition))$/
+      DRIVER_REGEX = /^(?:(?<headless>headless_)(?<driver>selenium_(?<browser>chrome|firefox)|cuprite|apparition)(?<no_js>_no_js)?|(?<driver_no_headless>selenium_(?<browser_no_headless>chrome|firefox|edge|safari)|cuprite|apparition)(?<no_js_no_headless>_no_js)?)$/
 
       OTHER_ACCEPTED_PARAMS = %i[timeout browser_options save_path remote].freeze
       OTHER_DRIVERS = %i[cuprite apparition].freeze
       SELENIUM_ACCEPTED_PARAMS = %i[remote additional_arguments additional_preferences binary].freeze
       SELENIUM_DRIVERS = %i[selenium_chrome selenium_firefox selenium_edge selenium_safari].freeze
+
+
+
 
       # Creates methods in the Drivers module that matches the DRIVER_REGEX
       # These methods will register a Driver for use by Capybara in a test pack
@@ -19,6 +22,7 @@ module DVLA
       def self.method_missing(method, *args, **kwargs, &)
         if (matches = method.match(DRIVER_REGEX))
           headless = matches[:headless].is_a? String
+          no_js = matches[:no_js].is_a?(String) || matches[:no_js_no_headless].is_a?(String)
           driver = matches[:driver]&.to_sym || matches[:driver_no_headless]&.to_sym
           browser_match = matches[:browser] || matches[:browser_no_headless]
 
@@ -52,13 +56,23 @@ module DVLA
                   key, value = preference.first
                   options.add_preference(key, value)
                 end
+
+                if no_js
+                  if browser == :chrome
+                    options.add_preference('profile.managed_default_content_settings.javascript', 2)
+                  elsif browser == :firefox
+                    options.add_preference('javascript.enabled', false)
+                  end
+                end
               end
 
               driver_browser = kwargs[:remote] ? :remote : browser
               driver_options = { browser: driver_browser, options: }
               driver_options[:url] = kwargs[:remote] if kwargs[:remote]
 
-              ::Capybara::Selenium::Driver.new(app, **driver_options)
+              ::Capybara::Selenium::Driver.new(app, **driver_options).tap do |driver|
+                driver.browser.execute_cdp('Emulation.setScriptExecutionDisabled', value: true) if no_js && browser == :edge
+              end
             end
           else
             kwargs.each do |key, _value|
@@ -66,6 +80,7 @@ module DVLA
             end
 
             browser_options = { 'no-sandbox': nil, 'disable-smooth-scrolling': true }
+            browser_options[:'blink-settings'] = 'scriptEnabled=false' if no_js
             kwargs[:browser_options] && kwargs[:browser_options].each do |key, value|
               browser_options[key] = value
             end
@@ -78,7 +93,7 @@ module DVLA
                 browser_options:,
                 save_path: kwargs[:save_path],
                 url: kwargs[:remote],
-              )
+                )
             end
           end
 
