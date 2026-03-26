@@ -54,10 +54,6 @@ RSpec.describe DVLA::Browser::Drivers do
     expect(Capybara.current_driver).to eq(:headless_selenium_firefox)
   end
 
-  it 'does not create an Edge driver with headless configuration' do
-    expect { DVLA::Browser::Drivers.headless_selenium_edge }.to raise_error NoMethodError
-  end
-
   it 'does not create a Safari driver with headless configuration' do
     expect { DVLA::Browser::Drivers.headless_selenium_safari }.to raise_error NoMethodError
   end
@@ -115,8 +111,7 @@ RSpec.describe DVLA::Browser::Drivers do
     expect(DVLA::Browser::Drivers.respond_to?(:headless_selenium_firefox)).to be true
     expect(DVLA::Browser::Drivers.respond_to?(:headless_cuprite)).to be true
     expect(DVLA::Browser::Drivers.respond_to?(:headless_apparition)).to be true
-
-    expect(DVLA::Browser::Drivers.respond_to?(:headless_selenium_edge)).to be false
+    expect(DVLA::Browser::Drivers.respond_to?(:headless_selenium_edge)).to be true
     expect(DVLA::Browser::Drivers.respond_to?(:headless_selenium_safari)).to be false
   end
 end
