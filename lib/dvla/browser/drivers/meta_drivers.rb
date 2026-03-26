@@ -3,9 +3,9 @@ module DVLA
     module Drivers
       DRIVER_REGEX = /^(?:(?<headless>headless_)(?<driver>selenium_(?<browser>chrome|firefox|edge)|cuprite|apparition)(?<no_js>_no_js)?(?<proxied>_proxied)?|(?<driver_no_headless>selenium_(?<browser_no_headless>chrome|firefox|edge|safari)|cuprite|apparition)(?<no_js_no_headless>_no_js)?(?<proxied_no_headless>_proxied)?)$/
 
-      OTHER_ACCEPTED_PARAMS = %i[timeout browser_options save_path remote proxy].freeze
+      OTHER_ACCEPTED_PARAMS = %i[timeout browser_options save_path remote proxy window_size].freeze
       OTHER_DRIVERS = %i[cuprite apparition].freeze
-      SELENIUM_ACCEPTED_PARAMS = %i[remote additional_arguments additional_preferences binary proxy].freeze
+      SELENIUM_ACCEPTED_PARAMS = %i[remote additional_arguments additional_preferences binary proxy window_size].freeze
       SELENIUM_DRIVERS = %i[selenium_chrome selenium_firefox selenium_edge selenium_safari].freeze
 
       # Creates methods in the Drivers module that matches the DRIVER_REGEX
@@ -67,6 +67,21 @@ module DVLA
                   end
                 end
 
+                if kwargs[:window_size]
+                  if browser == :edge
+                    puts "Warning: window_size is not supported for Edge and will be ignored"
+                  else
+                    size = kwargs[:window_size].is_a?(Array) ? kwargs[:window_size].join(',') : kwargs[:window_size].to_s.tr('x', ',')
+                    if browser == :firefox
+                      width, height = size.split(',')
+                      options.add_argument("-width=#{width}")
+                      options.add_argument("-height=#{height}")
+                    else
+                      options.add_argument("--window-size=#{size}")
+                    end
+                  end
+                end
+
                 kwargs[:additional_arguments] && kwargs[:additional_arguments].each do |argument|
                   argument.prepend('--') unless argument.start_with?('--')
                   options.add_argument(argument)
@@ -100,15 +115,13 @@ module DVLA
             end
 
             browser_options = { 'no-sandbox': nil, 'disable-smooth-scrolling': true }
+            browser_options = browser_options.merge(kwargs[:browser_options]) if kwargs[:browser_options]
+            browser_options[:'window-size'] = kwargs[:window_size] if kwargs[:window_size]
             browser_options[:'blink-settings'] = 'scriptEnabled=false' if no_js
 
             if kwargs[:proxy]
               browser_options[:'proxy-server'] = kwargs[:proxy]
               browser_options[:'ignore-certificate-errors'] = nil
-            end
-
-            kwargs[:browser_options] && kwargs[:browser_options].each do |key, value|
-              browser_options[key] = value
             end
 
             ::Capybara.register_driver method do |app|
@@ -123,7 +136,7 @@ module DVLA
             end
           end
 
-          puts  "Driver set to: '#{method}'"
+          puts "Driver set to: '#{method}'"
 
           ::Capybara.javascript_driver = method
           ::Capybara.default_driver = method
