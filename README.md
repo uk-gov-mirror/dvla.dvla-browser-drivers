@@ -43,11 +43,11 @@ Once installed, you are able to use any pre-configured browser driver from the l
 
 The following modifiers can be applied to any driver above (except selenium_safari):
 
-| Modifier    | Example                          | Description                                                        |
-|-------------|----------------------------------|--------------------------------------------------------------------|
-| headless_   | `headless_selenium_chrome`       | Runs the browser in headless mode                                  |
-| _no_js      | `selenium_chrome_no_js`          | Disables JavaScript in the browser                                 |
-| _proxied    | `selenium_firefox_proxied`       | Routes traffic through a proxy (requires `proxy_url` to be passed) |
+| Modifier    | Example                                             | Description                                                                   |
+|-------------|-----------------------------------------------------|-------------------------------------------------------------------------------|
+| headless_   | `headless_selenium_chrome`                          | Runs the browser in headless mode                                             |
+| _no_js      | `selenium_chrome_no_js`                             | Disables JavaScript in the browser                                            |
+| _proxied    | `selenium_firefox_proxied(proxy: 'http://foo.bar')` | Routes traffic through a proxy, requires a url passed as the `proxy` argument |
 
 Modifiers can be combined, e.g. `headless_selenium_firefox_no_js_proxied`
 
@@ -77,7 +77,7 @@ Modifiers can be combined, e.g. `headless_selenium_firefox_no_js_proxied`
 | remote                 | Selenium, Cuprite, Apparition | `selenium_chrome(remote: 'http://localhost:4444/wd/hub')`                                       | Allows you to talk to a remote browser     |
 | additional_arguments   | Selenium                      | `selenium_chrome(additional_arguments: ['window-size=1400,1920'] `                              | Pass additional arguments to the driver    |
 | additional_preferences | Selenium                      | `selenium_chrome(additional_preferences: [{'download.default_directory': '<download_path>'}] )` | Pass additional preferences to the driver  |
-| proxy_url              | Selenium, Cuprite             | `selenium_firefox_proxied(proxy_url: 'http://proxy:8080')`                                      | Sets the proxy URL for proxied drivers     |
+| proxy                  | Selenium, Cuprite             | `selenium_firefox_proxied(proxy: 'http://proxy:8080')`                                          | Sets the proxy URL for proxied drivers     |
 | timeout                | Cuprite, Apparition           | `cuprite(timeout: 60 )`                                                                         | Sets the default timeout for the driver    |
 | save_path              | Cuprite, Apparition           | `cuprite(save_path: 'File.expand_path('./somewhere')' )`                                        | Tells the browser where to store downloads |
 | browser_options        | Cuprite, Apparition           | `cuprite(browser_options: { option: value, option: value })`                                    | Pass additional options to the browser     |
