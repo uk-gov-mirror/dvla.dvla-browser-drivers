@@ -95,6 +95,38 @@ RSpec.describe DVLA::Browser::Drivers do
     expect(Capybara.current_session.driver.options.dig(:browser_options, :something)).to eq('blah')
   end
 
+  describe 'proxied drivers' do
+    let(:proxy_url) { 'http://proxy.example.com:8080' }
+
+    it 'raises ArgumentError when proxy param is missing' do
+      expect { DVLA::Browser::Drivers.selenium_firefox_proxied }.to raise_error(ArgumentError, /requires proxy parameter/)
+    end
+
+    it 'configures Firefox proxy via network preferences' do
+      DVLA::Browser::Drivers.selenium_firefox_proxied(proxy: proxy_url)
+      prefs = Capybara.current_session.driver.options[:options].prefs
+      expect(prefs['network.proxy.type']).to eq(1)
+      expect(prefs['network.proxy.http']).to eq('proxy.example.com')
+      expect(prefs['network.proxy.http_port']).to eq(8080)
+      expect(prefs['network.proxy.ssl']).to eq('proxy.example.com')
+      expect(prefs['network.proxy.ssl_port']).to eq(8080)
+    end
+
+    it 'configures Chrome proxy via --proxy-server argument' do
+      DVLA::Browser::Drivers.selenium_chrome_proxied(proxy: proxy_url)
+      args = Capybara.current_session.driver.options[:options].options[:args]
+      expect(args).to include("--proxy-server=#{proxy_url}")
+      expect(args).to include('--ignore-certificate-errors')
+    end
+
+    it 'configures Cuprite proxy via browser_options' do
+      DVLA::Browser::Drivers.cuprite_proxied(proxy: proxy_url)
+      browser_options = Capybara.current_session.driver.options[:browser_options]
+      expect(browser_options[:'proxy-server']).to eq(proxy_url)
+      expect(browser_options).to have_key(:'ignore-certificate-errors')
+    end
+  end
+
   it 'throws a NoMethodError when the method does not match regex' do
     expect { DVLA::Browser::Drivers.headless_blah }.to raise_error(NoMethodError)
   end

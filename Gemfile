@@ -5,6 +5,7 @@ source 'https://rubygems.org'
 # Specify your gem's dependencies in dvla-browser-drivers.gemspec
 gemspec
 
+gem "ostruct", "~> 0.6.3"
 gem 'bundler-audit', '~> 0.9.3'
 gem 'dvla-lint', '~> 1.7'
 gem 'pry', '~> 0.14'
