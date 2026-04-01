@@ -25,25 +25,33 @@ Once installed, you are able to use any pre-configured browser driver from the l
 
 ### Selenium drivers
 
-| Driver                    | Usage                                              |
-|---------------------------|----------------------------------------------------|
-| selenium_chrome           | `DVLA::Browser::Drivers.selenium_chrome`           |
-| headless_selenium_chrome  | `DVLA::Browser::Drivers.headless_selenium_chrome`  |
-| selenium_firefox          | `DVLA::Browser::Drivers.selenium_firefox`          |
-| headless_selenium_firefox | `DVLA::Browser::Drivers.headless_selenium_firefox` |
-| selenium_edge             | `DVLA::Browser::Drivers.selenium_edge`             |
-| selenium_safari           | `DVLA::Browser::Drivers.selenium_safari`           |
+| Driver           | Usage                                         |
+|------------------|-----------------------------------------------|
+| selenium_chrome  | `DVLA::Browser::Drivers.selenium_chrome`      |
+| selenium_firefox | `DVLA::Browser::Drivers.selenium_firefox`     |
+| selenium_edge    | `DVLA::Browser::Drivers.selenium_edge`        |
+| selenium_safari  | `DVLA::Browser::Drivers.selenium_safari`      |
 
 ### Non-selenium drivers
 
-| Driver              | Usage                                        |
-|---------------------|----------------------------------------------|
-| cuprite             | `DVLA::Browser::Drivers.cuprite`             |
-| headless_cuprite    | `DVLA::Browser::Drivers.headless_cuprite`    |
-| apparition          | `DVLA::Browser::Drivers.apparition`          |
-| headless_apparition | `DVLA::Browser::Drivers.headless_apparition` |
+| Driver     | Usage                               |
+|------------|-------------------------------------|
+| cuprite    | `DVLA::Browser::Drivers.cuprite`    |
+| apparition | `DVLA::Browser::Drivers.apparition` |
 
-**Note:** Safari and Edge do not support headless mode. 
+### Driver modifiers
+
+The following modifiers can be applied to any driver above (except selenium_safari):
+
+| Modifier    | Example                                             | Description                                                                   |
+|-------------|-----------------------------------------------------|-------------------------------------------------------------------------------|
+| headless_   | `headless_selenium_chrome`                          | Runs the browser in headless mode                                             |
+| _no_js      | `selenium_chrome_no_js`                             | Disables JavaScript in the browser                                            |
+| _proxied    | `selenium_firefox_proxied(proxy: 'http://foo.bar')` | Routes traffic through a proxy, requires a url passed as the `proxy` argument |
+
+Modifiers can be combined, e.g. `headless_selenium_firefox_no_js_proxied`
+
+**Note:** selenium_safari does not support any modifiers.
 
 ---
 
@@ -69,6 +77,7 @@ Once installed, you are able to use any pre-configured browser driver from the l
 | remote                 | Selenium, Cuprite, Apparition | `selenium_chrome(remote: 'http://localhost:4444/wd/hub')`                                       | Allows you to talk to a remote browser     |
 | additional_arguments   | Selenium                      | `selenium_chrome(additional_arguments: ['window-size=1400,1920'] `                              | Pass additional arguments to the driver    |
 | additional_preferences | Selenium                      | `selenium_chrome(additional_preferences: [{'download.default_directory': '<download_path>'}] )` | Pass additional preferences to the driver  |
+| proxy                  | Selenium, Cuprite             | `selenium_firefox_proxied(proxy: 'http://proxy:8080')`                                          | Sets the proxy URL for proxied drivers     |
 | timeout                | Cuprite, Apparition           | `cuprite(timeout: 60 )`                                                                         | Sets the default timeout for the driver    |
 | save_path              | Cuprite, Apparition           | `cuprite(save_path: 'File.expand_path('./somewhere')' )`                                        | Tells the browser where to store downloads |
 | browser_options        | Cuprite, Apparition           | `cuprite(browser_options: { option: value, option: value })`                                    | Pass additional options to the browser     |

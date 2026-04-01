@@ -1,11 +1,11 @@
 module DVLA
   module Browser
     module Drivers
-      DRIVER_REGEX = /^(?:(?<headless>headless_)(?<driver>selenium_(?<browser>chrome|firefox)|cuprite|apparition)|(?<driver_no_headless>selenium_(?<browser_no_headless>chrome|firefox|edge|safari)|cuprite|apparition))$/
+      DRIVER_REGEX = /^(?:(?<headless>headless_)(?<driver>selenium_(?<browser>chrome|firefox|edge)|cuprite|apparition)(?<no_js>_no_js)?(?<proxied>_proxied)?|(?<driver_no_headless>selenium_(?<browser_no_headless>chrome|firefox|edge|safari)|cuprite|apparition)(?<no_js_no_headless>_no_js)?(?<proxied_no_headless>_proxied)?)$/
 
-      OTHER_ACCEPTED_PARAMS = %i[timeout browser_options save_path remote].freeze
+      OTHER_ACCEPTED_PARAMS = %i[timeout browser_options save_path remote proxy].freeze
       OTHER_DRIVERS = %i[cuprite apparition].freeze
-      SELENIUM_ACCEPTED_PARAMS = %i[remote additional_arguments additional_preferences binary].freeze
+      SELENIUM_ACCEPTED_PARAMS = %i[remote additional_arguments additional_preferences binary proxy].freeze
       SELENIUM_DRIVERS = %i[selenium_chrome selenium_firefox selenium_edge selenium_safari].freeze
 
       # Creates methods in the Drivers module that matches the DRIVER_REGEX
@@ -19,8 +19,14 @@ module DVLA
       def self.method_missing(method, *args, **kwargs, &)
         if (matches = method.match(DRIVER_REGEX))
           headless = matches[:headless].is_a? String
+          no_js = matches[:no_js].is_a?(String) || matches[:no_js_no_headless].is_a?(String)
+          proxied = matches[:proxied].is_a?(String) || matches[:proxied_no_headless].is_a?(String)
           driver = matches[:driver]&.to_sym || matches[:driver_no_headless]&.to_sym
           browser_match = matches[:browser] || matches[:browser_no_headless]
+
+          if proxied && !kwargs[:proxy]
+            raise ArgumentError, "Method '#{method}' requires proxy parameter"
+          end
 
           case driver
           when *SELENIUM_DRIVERS
@@ -43,6 +49,24 @@ module DVLA
                   options.add_argument('--no-sandbox')
                 end
 
+                if kwargs[:proxy]
+                  if browser == :firefox
+                    proxy_uri = URI.parse(kwargs[:proxy])
+                    proxy_host = proxy_uri.host == '0.0.0.0' ? '127.0.0.1' : proxy_uri.host
+                    options.add_preference('network.proxy.type', 1)
+                    options.add_preference('network.proxy.http', proxy_host)
+                    options.add_preference('network.proxy.http_port', proxy_uri.port)
+                    options.add_preference('network.proxy.ssl', proxy_host)
+                    options.add_preference('network.proxy.ssl_port', proxy_uri.port)
+                    options.add_preference('network.proxy.no_proxies_on', '')
+                    options.add_preference('security.cert_pinning.enforcement_level', 0)
+                    options.add_preference('security.enterprise_roots.enabled', true)
+                  else
+                    options.add_argument("--proxy-server=#{kwargs[:proxy]}")
+                    options.add_argument('--ignore-certificate-errors')
+                  end
+                end
+
                 kwargs[:additional_arguments] && kwargs[:additional_arguments].each do |argument|
                   argument.prepend('--') unless argument.start_with?('--')
                   options.add_argument(argument)
@@ -52,13 +76,23 @@ module DVLA
                   key, value = preference.first
                   options.add_preference(key, value)
                 end
+
+                if no_js
+                  if browser == :chrome
+                    options.add_preference('profile.managed_default_content_settings.javascript', 2)
+                  elsif browser == :firefox
+                    options.add_preference('javascript.enabled', false)
+                  end
+                end
               end
 
               driver_browser = kwargs[:remote] ? :remote : browser
               driver_options = { browser: driver_browser, options: }
               driver_options[:url] = kwargs[:remote] if kwargs[:remote]
 
-              ::Capybara::Selenium::Driver.new(app, **driver_options)
+              ::Capybara::Selenium::Driver.new(app, **driver_options).tap do |driver|
+                driver.browser.execute_cdp('Emulation.setScriptExecutionDisabled', value: true) if no_js && browser == :edge
+              end
             end
           else
             kwargs.each do |key, _value|
@@ -66,8 +100,12 @@ module DVLA
             end
 
             browser_options = { 'no-sandbox': nil, 'disable-smooth-scrolling': true }
-            kwargs[:browser_options] && kwargs[:browser_options].each do |key, value|
-              browser_options[key] = value
+            browser_options = browser_options.merge(kwargs[:browser_options]) if kwargs[:browser_options]
+            browser_options[:'blink-settings'] = 'scriptEnabled=false' if no_js
+
+            if kwargs[:proxy]
+              browser_options[:'proxy-server'] = kwargs[:proxy]
+              browser_options[:'ignore-certificate-errors'] = nil
             end
 
             ::Capybara.register_driver method do |app|
@@ -78,11 +116,11 @@ module DVLA
                 browser_options:,
                 save_path: kwargs[:save_path],
                 url: kwargs[:remote],
-              )
+                )
             end
           end
 
-          puts  "Driver set to: '#{method}'"
+          puts "Driver set to: '#{method}'"
 
           ::Capybara.javascript_driver = method
           ::Capybara.default_driver = method
