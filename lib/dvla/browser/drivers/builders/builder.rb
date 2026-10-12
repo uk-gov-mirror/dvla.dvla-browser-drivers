@@ -105,6 +105,11 @@ module DVLA
         def register!(driver_name = @driver)
           raise DriverNotImplementedError, 'Use a specific builder class' unless driver_name
 
+          if ::Capybara.drivers.names.include?(driver_name)
+            DVLA::Browser::Drivers.logger.warn { "Overwriting driver: '#{driver_name}'" }
+            DVLA::Browser::Drivers.logger.warn { Capybara.drivers[driver_name].call.inspect.to_s }
+          end
+
           ::Capybara.app_host = @app_host
           ::Capybara.javascript_driver = driver_name
           ::Capybara.default_driver = driver_name
