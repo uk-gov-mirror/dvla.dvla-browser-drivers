@@ -2,8 +2,23 @@ module DVLA
   module Browser
     module Drivers
       class SeleniumBuilder < Builder
-        # TODO: Split out the class into subclasses so don't need this?
         class BrowserNotSupportedError < StandardError; end
+
+        BROWSER_SUBCLASSES = { chrome: 'Chrome', firefox: 'Firefox', edge: 'Edge', safari: 'Safari' }.freeze
+
+        SUPPORTED_OPTIONS = %i[headless javascript_disabled app_host remote_host proxy_url binary_path window_size
+                               timeout emulate_device].freeze
+
+        def self.new(config = nil)
+          browser = config.is_a?(Hash) ? config[:browser]&.to_sym : nil
+
+          if browser && BROWSER_SUBCLASSES.key?(browser) && self == SeleniumBuilder
+            subclass = const_get(BROWSER_SUBCLASSES[browser])
+            return subclass.new(config)
+          end
+
+          super
+        end
 
         def initialize(config = nil)
           super
@@ -17,35 +32,24 @@ module DVLA
           @emulate_device ||= nil
         end
 
-        def firefox
-          @browser = :firefox
-          self
-        end
-
-        def chrome
-          @browser = :chrome
-          self
-        end
-
-        def edge
-          @browser = :edge
-          self
-        end
-
-        def safari
-          @browser = :safari
-          self
-        end
+        def firefox = Firefox.new(current_config)
+        def chrome   = Chrome.new(current_config)
+        def edge     = Edge.new(current_config)
+        def safari   = Safari.new(current_config)
 
         def binary_path(path)
           @binary_path = path
           self
         end
 
-        def register!
-          # puts "Warning: window_size is not supported for #{browser}" if kwargs[:window_size] && browser == :safari
-          # puts 'Warning: window_size will be overridden by emulate_device' if kwargs[:window_size] && kwargs[:emulate_device]
+        # def emulate(_device = nil)
+        #   # TODO should we be warning or just throwing if they aren't supported
+        #   puts "You can't call that method on #{self.class} browser"
+        #   self
+        #   # raise BrowserNotSupportedError, "#{@browser} does not support device emulation"
+        # end
 
+        def register!
           Capybara.configure do |config|
             config.session_options.default_set_options = { clear: :backspace }
           end
@@ -58,35 +62,15 @@ module DVLA
                                options: build_selenium_options }
 
             ::Capybara::Selenium::Driver.new(app, **driver_options).tap do |driver|
-              if @javascript_disabled && browser == :edge
-                driver.browser.execute_cdp('Emulation.setScriptExecutionDisabled', value: true)
-              end
-
-              if @window_size && browser == :firefox
-                height, width = @window_size
-                driver.browser.manage.window.resize_to(height, width)
-              end
+              apply_js_disabled!(driver)
+              apply_window_size!(driver)
             end
           end
+
+          warn_unsupported_options!
           DVLA::Browser::Drivers.logger.info { "Driver registered - driver: #{@driver}, browser: #{@browser}, headless: #{@headless}, javascript disabled: #{@javascript_disabled}, browser options: #{@browser_flags + @browser_options}#{", proxy: #{@proxy_url}" if @proxy_url}#{", remote_host: #{@remote_host}" if @remote_host}" }
 
           super(driver_name)
-        end
-
-        def emulate(device = MOBILE_PROFILES.sample)
-          raise BrowserNotSupportedError unless supports_device_emulation?
-
-          if MOBILE_PROFILES.include?(device)
-            profile = MOBILE_PROFILES[device]
-            DVLA::Browser::Drivers.logger.info { "Emulating device: #{device}" }
-            @emulate_device = {
-              device_metrics: { width: profile[:width], height: profile[:height], pixelRatio: profile[:device_scale_factor], touch: profile[:has_touch] },
-              user_agent: profile[:user_agent],
-            }
-            self
-          else
-            raise ArgumentError, "Unknown mobile profile: '#{device}'. Available: #{MOBILE_PROFILES.keys.map { |k| ":#{k}" }.join(', ')}"
-          end
         end
 
       private
@@ -95,62 +79,79 @@ module DVLA
           :"selenium_#{@browser}"
         end
 
-        def supports_window_size_via_options?
-          %i[chrome edge].include?(@browser)
+        def supported_options = self.class::SUPPORTED_OPTIONS
+
+        def warn_unsupported_options!
+          # { headless: @headless, javascript_disabled: @javascript_disabled, proxy_url: @proxy_url,
+          #   binary_path: @binary_path, window_size: @window_size, emulate_device: @emulate_device }.each do |option, value|
+          #   next unless value && !supported_options.include?(option)
+          #
+          #   DVLA::Browser::Drivers.logger.warn { "#{option} is not supported by #{@browser}" }
+          # end
         end
 
-        def supports_device_emulation?
-          %i[chrome edge].include?(@browser)
-        end
+        # Hook: override in subclasses that support window size via browser arguments
+        def supports_window_size_via_options? = false
 
-        def apply_selenium_proxy_options!
+        # Hook: override in subclasses that support device emulation
+        def supports_device_emulation? = false
+
+        # Hook: override in subclasses with browser-specific post-driver-creation JS disabling
+        def apply_js_disabled!(_driver) = nil
+
+        # Hook: override in subclasses with browser-specific post-driver-creation window sizing
+        def apply_window_size!(_driver) = nil
+
+        # Hook: override in subclasses with browser-specific proxy options
+        def apply_proxy_options!
           return unless @proxy_url
 
-          if @browser == :firefox
-            proxy_uri = URI.parse(@proxy_url)
-            proxy_host = proxy_uri.host == '0.0.0.0' ? '127.0.0.1' : proxy_uri.host
-
-            add_browser_option('network.proxy.type', 1)
-            add_browser_option('network.proxy.http', proxy_host)
-            add_browser_option('network.proxy.http_port', proxy_uri.port)
-            add_browser_option('network.proxy.ssl', proxy_host)
-            add_browser_option('network.proxy.ssl_port', proxy_uri.port)
-            add_browser_option('network.proxy.no_proxies_on', '')
-          else
-            add_browser_flag("--proxy-server=#{@proxy_url}")
-          end
+          add_browser_flag("--proxy-server=#{@proxy_url}")
         end
 
-        def build_selenium_options
-          if @browser == :safari
-            DVLA::Browser::Drivers.logger.warn { 'Option is not supported by safari' } if @binary_path || @headless || @emulate_device || @proxy_url || @window_size || @javascript_disabled
-            return Selenium::WebDriver::Safari::Options.new
-          end
+        # Hook: override in subclasses with browser-specific options/preferences
+        def apply_browser_specific_options!(_options) = nil
 
+        def build_selenium_options
+          # TODO do we want BiDi on by default or an option?
           options = Object.const_get("Selenium::WebDriver::#{@browser.to_s.capitalize}::Options")
-                          .new(web_socket_url: true) # web_socket_url is for BIDI support
+                          .new(web_socket_url: true)
 
           options.binary = @binary_path if @binary_path
 
           add_browser_flag('--headless', '--no-sandbox') if @headless
           add_browser_flag("--window-size=#{@window_size[0]},#{@window_size[1]}") if @window_size && supports_window_size_via_options?
 
-          apply_selenium_proxy_options!
+          apply_proxy_options!
           options.accept_insecure_certs = true if @proxy_url
 
           options.add_emulation(**@emulate_device) if @emulate_device && supports_device_emulation?
 
-          if @javascript_disabled
-            add_browser_option('javascript.enabled', false) if @browser == :firefox
-            add_browser_option('profile.managed_default_content_settings.javascript', 2) if @browser == :chrome
-          end
+          apply_browser_specific_options!(options)
 
           @browser_flags.each { |flag| options.add_argument(flag) }
           @browser_options.each { |k, v| options.add_preference(k, v) }
 
           options
         end
+
+        def current_config
+          { driver: @driver,
+            headless: @headless,
+            javascript_disabled: @javascript_disabled,
+            app_host: @app_host,
+            remote_host: @remote_host,
+            proxy_url: @proxy_url,
+            binary_path: @binary_path,
+            window_size: @window_size,
+            timeout: @timeout }.compact
+        end
       end
     end
   end
 end
+
+require_relative 'selenium_builder/chrome'
+require_relative 'selenium_builder/firefox'
+require_relative 'selenium_builder/edge'
+require_relative 'selenium_builder/safari'

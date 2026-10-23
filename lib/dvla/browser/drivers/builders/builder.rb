@@ -7,6 +7,8 @@ module DVLA
 
         CONFIG_KEYS = %i[driver browser headless javascript_disabled app_host remote_host proxy_url binary_path
                          emulate_device save_path window_size timeout].freeze
+        ALL_OPTIONS = %i[headless javascript_disabled app_host remote_host proxy_url binary_path
+                         emulate_device save_path window_size timeout].freeze
         DRIVERS = %i[cuprite selenium].freeze
 
         SELENIUM_BROWSERS = %i[chrome firefox edge safari].freeze

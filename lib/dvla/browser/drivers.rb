@@ -6,6 +6,7 @@ require_relative 'drivers/configuration'
 require_relative 'drivers/mobile_profiles'
 require_relative 'drivers/meta_drivers'
 require_relative 'drivers/version'
+require_relative 'monkey'
 
 require 'capybara/apparition'
 require 'capybara/cuprite'
@@ -27,6 +28,7 @@ module DVLA
       end
 
       def self.register_from_config!(config: nil)
+        # TODO this will want fixing once the new method pattern is established
         raise ArgumentError unless config.is_a?(Hash)
 
         driver = config[:driver].to_s.downcase.to_sym
