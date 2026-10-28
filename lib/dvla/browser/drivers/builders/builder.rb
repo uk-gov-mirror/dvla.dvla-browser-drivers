@@ -6,7 +6,7 @@ module DVLA
         class DriverNotImplementedError < StandardError; end
 
         CONFIG_KEYS = %i[driver browser headless javascript_disabled app_host remote_host proxy_url binary_path
-                         emulate_device save_path window_size timeout].freeze
+                         browser_options emulate_device save_path window_size timeout].freeze
         ALL_OPTIONS = %i[headless javascript_disabled app_host remote_host proxy_url binary_path
                          emulate_device save_path window_size timeout].freeze
         DRIVERS = %i[cuprite selenium].freeze
@@ -168,6 +168,8 @@ module DVLA
                       config[key].to_s.downcase == 'true'
                     when :timeout
                       config[key].to_i
+                    when :browser_options
+                      (@browser_options || {}).merge(config[key])
                     when :browser_flags
                       case config[key]
                       when String
